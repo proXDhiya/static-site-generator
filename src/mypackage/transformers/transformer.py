@@ -1,5 +1,6 @@
 from mypackage.nodes.textnode import TextNode, TextType
 from mypackage.nodes.htmlnode import LeafNode
+import re
 
 
 def text_node_to_html_node(text_node: TextNode):
@@ -19,16 +20,20 @@ def text_node_to_html_node(text_node: TextNode):
 
 
 def parse_link(part):
-    url_name, rest = part.split(']', 1)
-    url_path = rest.split('(', 1)[1].split(')', 1)[0]
-    rest_text = rest.split(')', 1)[1].strip()
+    match = re.match(r'\[(.*?)\]\((.*?)\)', part)
+    if not match:
+        raise ValueError(f"Invalid link format: {part}")
+    url_name, url_path = match.groups()
+    rest_text = part[match.end():].strip()
     return url_name, url_path, rest_text
 
 
 def parse_image(part):
-    alt_text = part.split('[', 1)[1].split(']', 1)[0]
-    src_url = part.split('](', 1)[1].split(')', 1)[0]
-    rest_text = part.split(')', 1)[1].strip()
+    match = re.match(r'!\[(.*?)\]\((.*?)\)', part)
+    if not match:
+        raise ValueError(f"Invalid image format: {part}")
+    alt_text, src_url = match.groups()
+    rest_text = part[match.end():].strip()
     return alt_text, src_url, rest_text
 
 
@@ -36,25 +41,40 @@ def split_nodes_delimiter(old_nodes, delimiter, text_type):
     new_nodes = []
 
     for node in old_nodes:
-        parts = node.text.split(delimiter)
+        if node.text_type != TextType.TEXT:
+            new_nodes.append(node)
+            continue
 
-        for i, part in enumerate(parts):
-            if i % 2 == 0:
-                new_nodes.append(TextNode(part, node.text_type))
+        if text_type == TextType.LINK:
+            pattern = r'\[.*?\]\(.*?\)'
+        elif text_type == TextType.IMAGE:
+            pattern = r'!\[.*?\]\(.*?\)'
+        else:
+            pattern = re.escape(delimiter) + r'(.*?)' + re.escape(delimiter)
+
+        last_end = 0
+        for match in re.finditer(pattern, node.text):
+            start, end = match.span()
+            if start > last_end:
+                new_nodes.append(TextNode(node.text[last_end:start], TextType.TEXT))
+
+            part = match.group()
+            if text_type == TextType.LINK:
+                url_name, url_path, rest_text = parse_link(part)
+                new_nodes.append(TextNode(url_name, TextType.LINK, url_path))
+                if rest_text:
+                    new_nodes.append(TextNode(rest_text, TextType.TEXT))
+            elif text_type == TextType.IMAGE:
+                alt_text, src_url, rest_text = parse_image(part)
+                new_nodes.append(TextNode(alt_text, TextType.IMAGE, src_url))
+                if rest_text:
+                    new_nodes.append(TextNode(rest_text, TextType.TEXT))
             else:
-                if text_type == TextType.LINK:
-                    url_name, url_path, rest_text = parse_link(part)
-                    new_nodes.append(TextNode(url_name, TextType.LINK, url_path))
-                    if rest_text:
-                        new_nodes.append(TextNode(rest_text, node.text_type))
+                new_nodes.append(TextNode(match.group(1), text_type))
 
-                elif text_type == TextType.IMAGE:
-                    alt_text, src_url, rest_text = parse_image(part)
-                    new_nodes.append(TextNode(alt_text, TextType.IMAGE, src_url))
-                    if rest_text:
-                        new_nodes.append(TextNode(rest_text, node.text_type))
+            last_end = end
 
-                else:
-                    new_nodes.append(TextNode(part, text_type))
+        if last_end < len(node.text):
+            new_nodes.append(TextNode(node.text[last_end:], TextType.TEXT))
 
     return new_nodes
