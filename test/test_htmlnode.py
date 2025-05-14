@@ -1,6 +1,7 @@
 from mypackage.nodes.htmlnode import HTMLNode, LeafNode, ParentNode
 import unittest
 
+
 class TestHTMLNode(unittest.TestCase):
     def test_eq(self):
         node1 = HTMLNode(tag="p", value="Hello world", children=None, props={"color": "red"})
@@ -77,6 +78,27 @@ class TestHTMLNode(unittest.TestCase):
             parent_node.to_html(),
             "<div><span><b>grandchild</b></span></div>",
         )
+
+    def test_leaf_node_value_none_for_non_img(self):
+        with self.assertRaises(ValueError):
+            LeafNode("p", None)
+
+    def test_parent_node_empty_children(self):
+        parent = ParentNode("div", [])
+        self.assertEqual(parent.to_html(), "<div></div>")
+
+    def test_props_to_html_empty(self):
+        node = LeafNode("span", "text", props={})
+        self.assertEqual(node.props_to_html(), "")
+
+    def test_props_to_html_multiple(self):
+        node = LeafNode("a", "link", props={"href": "url", "target": "_blank"})
+        props_html = node.props_to_html()
+        # Order of props is not guaranteed, so test both possibilities
+        self.assertTrue(
+            props_html == 'href="url" target="_blank"' or props_html == 'target="_blank" href="url"'
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
