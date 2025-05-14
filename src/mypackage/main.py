@@ -1,4 +1,4 @@
-from mypackage.transformers.transformer import split_nodes_delimiter, split_nodes_image, text_to_textnodes
+from mypackage.transformers.transformer import *
 from mypackage.nodes.textnode import TextNode, TextType
 from mypackage.nodes.htmlnode import ParentNode, LeafNode
 
@@ -29,7 +29,20 @@ def main():
     # print(new_nodes)
 
     # test 4: Text to TextNode
-    text = "This is **text** with an _italic_ word and a `code block` and an ![obi wan image](https://i.imgur.com/fJRm4Vk.jpeg) and a [link](https://boot.dev)"
-    nodes = text_to_textnodes(text)
-    for node in nodes:
-        print(node)
+    # text = "This is **text** with an _italic_ word and a `code block` and an ![obi wan image](https://i.imgur.com/fJRm4Vk.jpeg) and a [link](https://boot.dev)"
+    # nodes = text_to_textnodes(text)
+    # for node in nodes:
+    #     print(node)
+
+    # test 5: markdown to blocks
+    markdown = """
+    This is **bolded** paragraph
+
+    This is another paragraph with _italic_ text and `code` here
+    This is the same paragraph on a new line
+
+    - This is a list
+    - with items
+    """
+    blocks = markdown_to_blocks(markdown)
+    print(f'{len(blocks)} blocks: {blocks}')

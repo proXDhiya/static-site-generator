@@ -1,7 +1,7 @@
-import unittest
-from mypackage.transformers.transformer import split_nodes_delimiter, text_node_to_html_node
 from mypackage.nodes.textnode import TextNode, TextType
+from mypackage.transformers.transformer import *
 from mypackage.nodes.htmlnode import LeafNode
+import unittest
 
 
 class TestTransformerExtended(unittest.TestCase):
@@ -34,6 +34,25 @@ class TestTransformerExtended(unittest.TestCase):
         self.assertEqual(result[1].text_type, TextType.BOLD)
         self.assertEqual(result[1].text, "bold")
 
+    def test_markdown_to_blocks(self):
+        md = """
+        This is **bolded** paragraph
+    
+        This is another paragraph with _italic_ text and `code` here
+        This is the same paragraph on a new line
+    
+        - This is a list
+        - with items
+        """
+        blocks = markdown_to_blocks(md)
+        self.assertEqual(
+            blocks,
+            [
+                "This is **bolded** paragraph",
+                "This is another paragraph with _italic_ text and `code` here\nThis is the same paragraph on a new line",
+                "- This is a list\n- with items",
+            ],
+        )
 
 if __name__ == "__main__":
     unittest.main()
