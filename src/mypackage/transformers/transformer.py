@@ -97,10 +97,120 @@ def text_to_textnodes(text):
     nodes = split_nodes_delimiter(nodes, "`", TextType.CODE)
     return nodes
 
+
+def markdown_to_html_node(markdown):
+    from mypackage.nodes.htmlnode import ParentNode
+    from mypackage.nodes.blocknode import block_to_block_type, BlockType
+
+    blocks = markdown_to_blocks(markdown)
+
+    html_nodes = []
+    for block in blocks:
+        block_type = block_to_block_type(block)
+
+        if block_type == BlockType.PARAGRAPH:
+            text = block.replace('\n', ' ').strip()
+            text_nodes = text_to_textnodes(text)
+            html_children = [text_node_to_html_node(node) for node in text_nodes]
+            html_nodes.append(ParentNode(tag='p', children=html_children))
+
+        elif block_type == BlockType.HEADING:
+            headings = block.split('\n')
+            for heading in headings:
+                if not heading.strip():
+                    continue
+
+                level = len(heading) - len(heading.lstrip('#'))
+                tag = f'h{level}'
+
+                text = heading.strip('# ').strip()
+                text_nodes = text_to_textnodes(text)
+                html_children = [text_node_to_html_node(node) for node in text_nodes]
+                html_nodes.append(ParentNode(tag=tag, children=html_children))
+
+        elif block_type == BlockType.CODE:
+            code_text = block.strip()[3:-3]
+            code_text = code_text.lstrip('\n')
+            html_nodes.append(ParentNode(tag='pre', children=[
+                ParentNode(tag='code', children=[LeafNode(tag=None, value=code_text)])]))
+
+        elif block_type == BlockType.QUOTE:
+            text = block.replace('>', '', 1).replace('\n', ' ').strip()
+            text_nodes = text_to_textnodes(text)
+            html_children = [text_node_to_html_node(node) for node in text_nodes]
+            html_nodes.append(ParentNode(tag='blockquote', children=html_children))
+
+        elif block_type == BlockType.UNORDERED_LIST:
+            items = block.split('\n')
+            stack = []
+            root_ul = ParentNode(tag='ul', children=[])
+            stack.append((0, root_ul))
+            for idx, item in enumerate(items):
+                if not item.strip():
+                    continue
+
+                indent_level = len(item) - len(item.lstrip(' '))
+                text = item.lstrip(' -')
+                text_nodes = text_to_textnodes(text.strip())
+                html_children = [text_node_to_html_node(node) for node in text_nodes]
+                list_item = ParentNode(tag='li', children=html_children)
+                while stack and indent_level < stack[-1][0]:
+                    stack.pop()
+                if indent_level > stack[-1][0]:
+                    if not stack[-1][1].children:
+                        pass
+                    else:
+                        parent_li = stack[-1][1].children[-1]
+                        nested_ul = ParentNode(tag='ul', children=[])
+                        parent_li.children.append(nested_ul)
+                        stack.append((indent_level, nested_ul))
+                stack[-1][1].children.append(list_item)
+            html_nodes.append(root_ul)
+
+        elif block_type == BlockType.ORDERED_LIST:
+            items = block.split('\n')
+            list_items = []
+            for item in items:
+                item = item.strip()
+                if not item:
+                    continue
+
+                if re.match(r'^\d+\. ', item):
+                    text = item[item.index('. ') + 2:]
+                    text_nodes = text_to_textnodes(text)
+                    html_children = [text_node_to_html_node(node) for node in text_nodes]
+                    list_items.append(ParentNode(tag='li', children=html_children))
+
+            if list_items:
+                html_nodes.append(ParentNode(tag='ol', children=list_items))
+
+    return ParentNode(tag='div', children=html_nodes)
+
+
 def markdown_to_blocks(markdown):
     blocks = []
     raw_blocks = re.split(r'\n\s*\n', markdown)
     for block in raw_blocks:
-        cleaned_lines = [line.strip() for line in block.strip().split('\n')]
-        blocks.append('\n'.join(cleaned_lines))
+        lines = block.strip('\n').split('\n')
+        if not lines:
+            continue
+
+        first_line = lines[0].lstrip()
+        is_list = first_line.startswith('- ') or bool(re.match(r'^\d+\. ', first_line))
+        is_code = first_line.startswith('```')
+
+        if is_code:
+            cleaned_lines = [line.rstrip() for line in lines]
+        elif is_list:
+            leading_spaces = [
+                len(line) - len(line.lstrip(' '))
+                for line in lines if line.strip()
+            ]
+            min_leading = min(leading_spaces) if leading_spaces else 0
+            cleaned_lines = [line[min_leading:].rstrip() for line in lines]
+        else:
+            cleaned_lines = [line.strip() for line in lines]
+
+        block_str = '\n'.join(cleaned_lines).rstrip('\n')
+        blocks.append(block_str)
     return blocks
