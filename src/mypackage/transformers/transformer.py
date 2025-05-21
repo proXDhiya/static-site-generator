@@ -15,7 +15,7 @@ def text_node_to_html_node(text_node: TextNode):
     elif text_node.text_type == TextType.LINK:
         return LeafNode(tag='a', value=text_node.text, props={'href': text_node.url})
     elif text_node.text_type == TextType.IMAGE:
-        return LeafNode(tag='img', value=None, props={'src': text_node.url, 'alt': text_node.text})
+        return LeafNode(tag='img', value="", props={'src': text_node.url, 'alt': text_node.text})
     raise Exception("Not implemented type")
 
 
@@ -214,3 +214,32 @@ def markdown_to_blocks(markdown):
         block_str = '\n'.join(cleaned_lines).rstrip('\n')
         blocks.append(block_str)
     return blocks
+
+
+def extract_title(markdown):
+    html = markdown_to_html_node(markdown)
+    for child in html.children:
+        if child.tag == 'h1':
+            return ''.join([c.value for c in child.children if hasattr(c, 'value') and c.value])
+    raise ValueError("No title found in markdown")
+
+
+def generate_page(from_path, template_path, dest_path):
+    markdown_content = None
+    template_content = None
+
+    with open(from_path, 'r', encoding='utf-8') as f:
+        markdown_content = f.read()
+    with open(template_path, 'r', encoding='utf-8') as f:
+        template_content = f.read()
+
+    page_title = extract_title(markdown_content)
+
+    html_nodes = markdown_to_html_node(markdown_content)
+    html_content = html_nodes.to_html()
+
+    final_output = template_content.replace("{{ Title }}", page_title)
+    final_output = final_output.replace("{{ Content }}", html_content)
+
+    with open(dest_path, 'w', encoding='utf-8') as f:
+        f.write(final_output)
