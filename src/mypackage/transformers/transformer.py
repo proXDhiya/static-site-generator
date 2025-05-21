@@ -224,7 +224,7 @@ def extract_title(markdown):
     raise ValueError("No title found in markdown")
 
 
-def generate_page(from_path, template_path, dest_path):
+def generate_page(from_path, template_path, dest_path, basepath="/"):
     markdown_content = None
     template_content = None
 
@@ -240,6 +240,13 @@ def generate_page(from_path, template_path, dest_path):
 
     final_output = template_content.replace("{{ Title }}", page_title)
     final_output = final_output.replace("{{ Content }}", html_content)
+
+    # Replace href="/ and src="/ with basepath
+    if not basepath.endswith('/'):
+        basepath += '/'
+
+    final_output = final_output.replace('href="/', f'href="{basepath}')
+    final_output = final_output.replace('src="/', f'src="{basepath}')
 
     with open(dest_path, 'w', encoding='utf-8') as f:
         f.write(final_output)
